@@ -2,7 +2,6 @@
 
 import os
 from collections import OrderedDict
-from multiprocessing import Pool, cpu_count
 
 import numpy as np
 from PySide2.QtCore import QObject, Signal
@@ -15,7 +14,7 @@ def read_spectrum(path):
 class Coins(QObject):
     new_spectrum = Signal(object, object)
 
-    def __init__(self):
+    def __init__(self, multiprocessing_pool):
         QObject.__init__(self)
 
         self.working_directory = ""
@@ -24,11 +23,7 @@ class Coins(QObject):
         self.spectrum = np.array([])
         self.labels = []
 
-        n_cpu_cores = cpu_count()
-
-        print("number of cpu cores: ", n_cpu_cores)
-
-        self.pool = Pool(processes=n_cpu_cores)
+        self.pool = multiprocessing_pool
 
     def load_file(self, path):
         self.working_directory = os.path.dirname(path)

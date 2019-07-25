@@ -10,7 +10,8 @@ from PySide2.QtGui import QColor, QGuiApplication, QKeySequence
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
                                QGroupBox, QHeaderView, QLabel, QLineEdit,
-                               QPushButton, QRadioButton, QTableView)
+                               QProgressBar, QPushButton, QRadioButton,
+                               QTableView)
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize, scale
 
@@ -20,14 +21,15 @@ from ViewPCA.model import Model
 
 class Table(QObject):
 
-    def __init__(self):
+    def __init__(self, multiprocessing_pool):
         QObject.__init__(self)
 
         self.module_path = os.path.dirname(__file__)
 
+        self.pool = multiprocessing_pool
         self.model = Model()
         self.model_selection = Model()
-        self.coins = Coins()
+        self.coins = Coins(self.pool)
 
         loader = QUiLoader()
 
@@ -52,6 +54,9 @@ class Table(QObject):
         self.preprocessing_norm_l1 = self.main_widget.findChild(QRadioButton, "radio_norm_l1")
         self.preprocessing_norm_l2 = self.main_widget.findChild(QRadioButton, "radio_norm_l2")
         self.preprocessing_norm_max = self.main_widget.findChild(QRadioButton, "radio_norm_max")
+        self.progressbar = self.main_widget.findChild(QProgressBar, "progressbar")
+
+        self.progressbar.hide()
 
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -223,7 +228,10 @@ class Table(QObject):
             t.start()
 
     def on_new_spectrum(self, spectrum, labels):
-        self.do_pca(spectrum, labels)
+        self.progressbar.show()
+
+        t = threading.Thread(target=self.do_pca, args=(spectrum, labels), daemon=True)
+        t.start()
 
     def do_pca(self, spectrum_value, labels):
         spectrum = np.copy(spectrum_value)
@@ -276,6 +284,8 @@ class Table(QObject):
         last_index = self.model.index(self.model.rowCount() - 1, self.model.columnCount() - 1)
 
         self.model.dataChanged.emit(first_index, last_index)
+
+        self.progressbar.hide()
 
     def selection_changed(self, selected, deselected):
         s_model = self.table_view.selectionModel()
@@ -330,12 +340,21 @@ class Table(QObject):
                 self.groupbox_axis.setEnabled(True)
                 self.groupbox_norm.setEnabled(False)
 
-            self.do_pca(self.coins.spectrum, self.coins.labels)
+            self.progressbar.show()
+
+            t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
+            t.start()
 
     def on_preprocessing_axis_changed(self, state):
         if state:
-            self.do_pca(self.coins.spectrum, self.coins.labels)
+            self.progressbar.show()
+
+            t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
+            t.start()
 
     def on_preprocessing_norm_changed(self, state):
         if state:
-            self.do_pca(self.coins.spectrum, self.coins.labels)
+            self.progressbar.show()
+
+            t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
+            t.start()

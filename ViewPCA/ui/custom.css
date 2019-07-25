@@ -258,3 +258,18 @@ QGroupBox::title {
   subcontrol-position: top center;
   padding: 0 3px;
 }
+
+/*
+  QProgressBar
+*/
+
+QProgressBar {
+  background-color: #acece6;
+  border-radius: 2px;
+  margin: 0.5rem 0 1rem 0;
+  max-height: 4px;
+}
+
+QProgressBar::chunk {
+  background-color: #26a69a;
+}
