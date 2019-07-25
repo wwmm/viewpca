@@ -15,21 +15,26 @@ from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize, scale
 
+from ViewPCA.callout import Callout
 from ViewPCA.coins import Coins
 from ViewPCA.model import Model
 
 
 class Table(QObject):
 
-    def __init__(self, multiprocessing_pool):
+    def __init__(self, multiprocessing_pool, chart):
         QObject.__init__(self)
 
         self.module_path = os.path.dirname(__file__)
 
         self.pool = multiprocessing_pool
+        self.chart = chart
         self.model = Model()
         self.model_selection = Model()
         self.coins = Coins(self.pool)
+
+        self.callout = Callout(self.chart)
+        self.callout.hide()
 
         loader = QUiLoader()
 
@@ -67,6 +72,9 @@ class Table(QObject):
         self.series = QtCharts.QScatterSeries(self.table_view)
         self.series.setName("table")
         self.series.setMarkerSize(15)
+        self.series.hovered.connect(self.on_hover)
+
+        self.chart.addSeries(self.series)
 
         self.mapper = QtCharts.QVXYModelMapper()
         self.mapper.setXColumn(1)
@@ -78,7 +86,11 @@ class Table(QObject):
 
         self.series_selection = QtCharts.QScatterSeries(self.table_view)
         self.series_selection.setName("selection")
+        self.series_selection.setMarkerShape(QtCharts.QScatterSeries.MarkerShapeRectangle)
         self.series_selection.setMarkerSize(15)
+        self.series_selection.hovered.connect(self.on_hover)
+
+        self.chart.addSeries(self.series_selection)
 
         self.mapper_selection = QtCharts.QVXYModelMapper()
         self.mapper_selection.setXColumn(1)
@@ -324,8 +336,6 @@ class Table(QObject):
     def update_legend(self):
         self.series.setName(self.legend.displayText())
 
-        self.series_selection.setName(self.legend.displayText() + " selection")
-
     def on_preprocessing_changed(self, state):
         if state:
             if self.preprocessing_none.isChecked():
@@ -358,3 +368,21 @@ class Table(QObject):
 
             t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
             t.start()
+
+    def on_hover(self, point, state):
+        if state:
+            dx = np.fabs(self.model.data_pc1 - point.x())
+            dy = np.fabs(self.model.data_pc2 - point.y())
+
+            idx_list = np.argwhere((dx < 0.00001) & (dy < 0.00001))
+
+            if len(idx_list) == 1:
+                label = self.model.data_name[idx_list[0]][0]
+
+                self.callout.set_text(label)
+                self.callout.set_anchor(point)
+                self.callout.setZValue(11)
+                self.callout.updateGeometry()
+                self.callout.show()
+        else:
+            self.callout.hide()

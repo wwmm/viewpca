@@ -51,18 +51,18 @@ class ApplicationWindow(QObject):
         # Creating QChart
         self.chart = QtCharts.QChart()
         self.chart.setAnimationOptions(QtCharts.QChart.AllAnimations)
+        self.chart.setTheme(QtCharts.QChart.ChartThemeLight)
+        self.chart.setAcceptHoverEvents(True)
 
         self.axis_x = QtCharts.QValueAxis()
         self.axis_x.setTitleText("PC1")
         self.axis_x.setRange(-10, 10)
         self.axis_x.setLabelFormat("%.1f")
-        self.axis_x.setGridLineVisible(False)
 
         self.axis_y = QtCharts.QValueAxis()
         self.axis_y.setTitleText("PC2")
         self.axis_y.setRange(-10, 10)
         self.axis_y.setLabelFormat("%.1f")
-        self.axis_y.setGridLineVisible(False)
 
         self.chart.addAxis(self.axis_x, Qt.AlignBottom)
         self.chart.addAxis(self.axis_y, Qt.AlignLeft)
@@ -113,18 +113,14 @@ class ApplicationWindow(QObject):
         return effect
 
     def add_tab(self):
-        table = Table(self.pool)
+        table = Table(self.pool, self.chart)
 
         # data series
-
-        self.chart.addSeries(table.series)
 
         table.series.attachAxis(self.axis_x)
         table.series.attachAxis(self.axis_y)
 
         # table selection series
-
-        self.chart.addSeries(table.series_selection)
 
         table.series_selection.attachAxis(self.axis_x)
         table.series_selection.attachAxis(self.axis_y)
@@ -138,7 +134,6 @@ class ApplicationWindow(QObject):
         self.tables.append(table)
 
         table.series.setName("table " + str(len(self.tables)))
-        table.series_selection.setName("table " + str(len(self.tables)) + " selection")
 
         self.tab_widget.addTab(table.main_widget, "table " + str(len(self.tables)))
 
