@@ -1,12 +1,12 @@
 [Desktop Entry]
-Name=WWplot
-GenericName=Plotting Tool
-Comment=Plotting Tool for Experimental Physics Classes
-Keywords=plot;graph;experiment;laboratory;
+Name=ViewPCA
+GenericName=Principal Component Analysis Plotting Tool
+Comment=Principal Component Analysis Plotting Tool
+Keywords=plot;graph;
 Categories=GTK;Education;Graphics;Science;
 Exec=wwplot
 # Translators: This is an icon name, don't translate!
-Icon=wwplot
+Icon=viewpca
 StartupNotify=true
 Terminal=false
 Type=Application

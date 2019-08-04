@@ -3,6 +3,7 @@
 import os
 import threading
 
+import h5py
 import numpy as np
 from PySide2.QtCharts import QtCharts
 from PySide2.QtCore import QEvent, QObject, Qt
@@ -16,7 +17,6 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize, scale
 
 from ViewPCA.callout import Callout
-from ViewPCA.coins import Coins
 from ViewPCA.model import Model
 
 
@@ -26,12 +26,13 @@ class Table(QObject):
         QObject.__init__(self)
 
         self.module_path = os.path.dirname(__file__)
+        self.pca_matrix = np.array([])
+        self.labels = []
 
         self.pool = multiprocessing_pool
         self.chart = chart
         self.model = Model()
         self.model_selection = Model()
-        self.coins = Coins(self.pool)
 
         self.callout = Callout(self.chart)
         self.callout.hide()
@@ -108,7 +109,6 @@ class Table(QObject):
 
         button_load_data.clicked.connect(self.open_file)
         self.table_view.selectionModel().selectionChanged.connect(self.selection_changed)
-        self.coins.new_spectrum.connect(self.on_new_spectrum)
         self.legend.returnPressed.connect(self.update_legend)
         self.preprocessing_none.toggled.connect(self.on_preprocessing_changed)
         self.preprocessing_normalize.toggled.connect(self.on_preprocessing_changed)
@@ -233,22 +233,23 @@ class Table(QObject):
 
     def open_file(self):
         file_path = QFileDialog.getOpenFileName(self.main_widget, "Open File", os.path.expanduser("~"),
-                                                "Coin Tags (*.csv);; *.* (*.*)")[0]
+                                                "Matrix (*.hdf5);; *.* (*.*)")[0]
 
         if file_path != "":
-            t = threading.Thread(target=self.coins.load_file, args=(file_path,), daemon=True)
-            t.start()
+            with h5py.File(file_path, "r") as f:
+                if "pca_matrix" in f.keys():
+                    dset = f["pca_matrix"]
 
-    def on_new_spectrum(self, spectrum, labels):
-        self.progressbar.show()
+                    self.pca_matrix = dset[:]
+                    self.labels = dset.attrs["pca_sample_labels"]
 
-        t = threading.Thread(target=self.do_pca, args=(spectrum, labels), daemon=True)
-        t.start()
+                    t = threading.Thread(target=self.do_pca, args=(), daemon=True)
+                    t.start()
 
-    def do_pca(self, spectrum_value, labels):
-        spectrum = np.copy(spectrum_value)
+    def do_pca(self):
+        spectrums = np.copy(self.pca_matrix)
 
-        if spectrum.size == 0:
+        if spectrums.size == 0:
             return
 
         if self.preprocessing_normalize.isChecked():
@@ -263,18 +264,18 @@ class Table(QObject):
             elif self.preprocessing_norm_max.isChecked():
                 norm_type = "max"
 
-            spectrum = normalize(spectrum, copy=False, axis=axis_type, norm=norm_type)
+            spectrums = normalize(spectrums, copy=False, axis=axis_type, norm=norm_type)
         elif self.preprocessing_standardize.isChecked():
             axis_type = 1
 
             if self.preprocessing_axis_features.isChecked():  # features
                 axis_type = 0
 
-            spectrum = scale(spectrum, copy=False, axis=axis_type)
+            spectrums = scale(spectrums, copy=False, axis=axis_type)
 
         pca = PCA(n_components=2, whiten=False)
 
-        pca.fit(spectrum)
+        pca.fit(spectrums)
 
         self.pc1_variance_ratio.setText("{0:.1f}%".format(pca.explained_variance_ratio_[0] * 100))
         self.pc2_variance_ratio.setText("{0:.1f}%".format(pca.explained_variance_ratio_[1] * 100))
@@ -282,11 +283,11 @@ class Table(QObject):
         self.pc1_singular_value.setText("{0:.1f} ".format(pca.singular_values_[0]))
         self.pc2_singular_value.setText("{0:.1f} ".format(pca.singular_values_[1]))
 
-        reduced_cartesian = pca.fit_transform(spectrum)
+        reduced_cartesian = pca.fit_transform(spectrums)
 
         self.model.beginResetModel()
 
-        self.model.data_name = np.asarray(labels)
+        self.model.data_name = np.asarray(self.labels)
         self.model.data_pc1 = reduced_cartesian[:, 0]
         self.model.data_pc2 = reduced_cartesian[:, 1]
 
@@ -352,21 +353,21 @@ class Table(QObject):
 
             self.progressbar.show()
 
-            t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
+            t = threading.Thread(target=self.do_pca, args=(), daemon=True)
             t.start()
 
     def on_preprocessing_axis_changed(self, state):
         if state:
             self.progressbar.show()
 
-            t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
+            t = threading.Thread(target=self.do_pca, args=(), daemon=True)
             t.start()
 
     def on_preprocessing_norm_changed(self, state):
         if state:
             self.progressbar.show()
 
-            t = threading.Thread(target=self.do_pca, args=(self.coins.spectrum, self.coins.labels), daemon=True)
+            t = threading.Thread(target=self.do_pca, args=(), daemon=True)
             t.start()
 
     def on_hover(self, point, state):

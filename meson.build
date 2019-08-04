@@ -20,12 +20,12 @@ localedir = join_paths(prefix, get_option('localedir'))
 
 install_subdir('ViewPCA', install_dir: py3.get_install_dir())
 
-conf_physart = configuration_data()
-conf_physart.set('LOCALEDIR', localedir)
-conf_physart.set('PROJECT_NAME', meson.project_name())
+conf_viewpca = configuration_data()
+conf_viewpca.set('LOCALEDIR', localedir)
+conf_viewpca.set('PROJECT_NAME', meson.project_name())
 configure_file(input: 'viewpca.in',
                output: 'viewpca',
-               configuration: conf_physart,
+               configuration: conf_viewpca,
                install_dir: bindir)
 
 subdir('data')
