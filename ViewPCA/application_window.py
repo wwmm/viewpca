@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-from multiprocessing import Pool, cpu_count
 
 import numpy as np
 from PySide2.QtCharts import QtCharts
@@ -21,12 +20,6 @@ class ApplicationWindow(QObject):
         self.module_path = os.path.dirname(__file__)
 
         self.tables = []
-
-        n_cpu_cores = cpu_count()
-
-        print("number of cpu cores: ", n_cpu_cores)
-
-        self.pool = Pool(processes=n_cpu_cores)
 
         # loading widgets from designer file
 
@@ -113,7 +106,7 @@ class ApplicationWindow(QObject):
         return effect
 
     def add_tab(self):
-        table = Table(self.pool, self.chart)
+        table = Table(self.chart)
 
         # data series
 

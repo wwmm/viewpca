@@ -22,14 +22,13 @@ from ViewPCA.model import Model
 
 class Table(QObject):
 
-    def __init__(self, multiprocessing_pool, chart):
+    def __init__(self, chart):
         QObject.__init__(self)
 
         self.module_path = os.path.dirname(__file__)
         self.pca_matrix = np.array([])
         self.labels = []
 
-        self.pool = multiprocessing_pool
         self.chart = chart
         self.model = Model()
         self.model_selection = Model()
