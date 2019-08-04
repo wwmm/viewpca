@@ -247,9 +247,9 @@ class Table(QObject):
                     t.start()
 
     def do_pca(self):
-        spectrums = np.copy(self.pca_matrix)
+        pca_matrix = np.copy(self.pca_matrix)
 
-        if spectrums.size == 0:
+        if pca_matrix.size == 0:
             return
 
         if self.preprocessing_normalize.isChecked():
@@ -264,18 +264,18 @@ class Table(QObject):
             elif self.preprocessing_norm_max.isChecked():
                 norm_type = "max"
 
-            spectrums = normalize(spectrums, copy=False, axis=axis_type, norm=norm_type)
+            pca_matrix = normalize(pca_matrix, copy=False, axis=axis_type, norm=norm_type)
         elif self.preprocessing_standardize.isChecked():
             axis_type = 1
 
             if self.preprocessing_axis_features.isChecked():  # features
                 axis_type = 0
 
-            spectrums = scale(spectrums, copy=False, axis=axis_type)
+            pca_matrix = scale(pca_matrix, copy=False, axis=axis_type)
 
         pca = PCA(n_components=2, whiten=False)
 
-        pca.fit(spectrums)
+        pca.fit(pca_matrix)
 
         self.pc1_variance_ratio.setText("{0:.1f}%".format(pca.explained_variance_ratio_[0] * 100))
         self.pc2_variance_ratio.setText("{0:.1f}%".format(pca.explained_variance_ratio_[1] * 100))
@@ -283,7 +283,7 @@ class Table(QObject):
         self.pc1_singular_value.setText("{0:.1f} ".format(pca.singular_values_[0]))
         self.pc2_singular_value.setText("{0:.1f} ".format(pca.singular_values_[1]))
 
-        reduced_cartesian = pca.fit_transform(spectrums)
+        reduced_cartesian = pca.fit_transform(pca_matrix)
 
         self.model.beginResetModel()
 
