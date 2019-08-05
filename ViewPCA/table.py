@@ -6,7 +6,7 @@ import threading
 import h5py
 import numpy as np
 from PySide2.QtCharts import QtCharts
-from PySide2.QtCore import QEvent, QObject, Qt
+from PySide2.QtCore import QEvent, QObject, Qt, Signal
 from PySide2.QtGui import QColor, QGuiApplication, QKeySequence
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
@@ -21,6 +21,7 @@ from ViewPCA.model import Model
 
 
 class Table(QObject):
+    new_mouse_coords = Signal(object,)
 
     def __init__(self, chart):
         QObject.__init__(self)
@@ -371,6 +372,8 @@ class Table(QObject):
 
     def on_hover(self, point, state):
         if state:
+            self.new_mouse_coords.emit(point)
+
             dx = np.fabs(self.model.data_pc1 - point.x())
             dy = np.fabs(self.model.data_pc2 - point.y())
 

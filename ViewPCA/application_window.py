@@ -8,7 +8,7 @@ from PySide2.QtCore import QFile, QObject, Qt
 from PySide2.QtGui import QColor, QPainter
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
-                               QPushButton, QTabWidget)
+                               QLabel, QPushButton, QTabWidget)
 
 from ViewPCA.table import Table
 
@@ -36,6 +36,7 @@ class ApplicationWindow(QObject):
         button_add_tab = self.window.findChild(QPushButton, "button_add_tab")
         button_reset_zoom = self.window.findChild(QPushButton, "button_reset_zoom")
         button_save_image = self.window.findChild(QPushButton, "button_save_image")
+        self.label_mouse_coords = self.window.findChild(QLabel, "label_mouse_coords")
 
         # signal connection
 
@@ -127,6 +128,7 @@ class ApplicationWindow(QObject):
         # signals
 
         table.model.dataChanged.connect(self.update_scale)
+        table.new_mouse_coords.connect(self.on_new_mouse_coords)
 
         # add table
 
@@ -193,3 +195,6 @@ class ApplicationWindow(QObject):
 
     def reset_zoom(self):
         self.chart.zoomReset()
+
+    def on_new_mouse_coords(self, point):
+        self.label_mouse_coords.setText("x = {0:.6f}, y = {1:.6f}".format(point.x(), point.y()))
