@@ -7,8 +7,8 @@ from PySide2.QtCharts import QtCharts
 from PySide2.QtCore import QFile, QObject, Qt
 from PySide2.QtGui import QColor, QPainter
 from PySide2.QtUiTools import QUiLoader
-from PySide2.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QPushButton,
-                               QTabWidget)
+from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
+                               QPushButton, QTabWidget)
 
 from ViewPCA.table import Table
 
@@ -31,15 +31,18 @@ class ApplicationWindow(QObject):
 
         self.tab_widget = self.window.findChild(QTabWidget, "tab_widget")
         chart_frame = self.window.findChild(QFrame, "chart_frame")
+        chart_cfg_frame = self.window.findChild(QFrame, "chart_cfg_frame")
         self.chart_view = self.window.findChild(QtCharts.QChartView, "chart_view")
         button_add_tab = self.window.findChild(QPushButton, "button_add_tab")
+        button_reset_zoom = self.window.findChild(QPushButton, "button_reset_zoom")
+        button_save_image = self.window.findChild(QPushButton, "button_save_image")
 
         # signal connection
 
         self.tab_widget.tabCloseRequested.connect(self.remove_tab)
         button_add_tab.clicked.connect(self.add_tab)
-
-        # init plot class
+        button_reset_zoom.clicked.connect(self.reset_zoom)
+        button_save_image.clicked.connect(self.save_image)
 
         # Creating QChart
         self.chart = QtCharts.QChart()
@@ -81,7 +84,10 @@ class ApplicationWindow(QObject):
 
         self.tab_widget.setGraphicsEffect(self.card_shadow())
         chart_frame.setGraphicsEffect(self.card_shadow())
+        chart_cfg_frame.setGraphicsEffect(self.card_shadow())
         button_add_tab.setGraphicsEffect(self.button_shadow())
+        button_reset_zoom.setGraphicsEffect(self.button_shadow())
+        button_save_image.setGraphicsEffect(self.button_shadow())
 
         self.window.show()
 
@@ -171,3 +177,19 @@ class ApplicationWindow(QObject):
             fraction = 0.15
             self.axis_x.setRange(Xmin - fraction * np.fabs(Xmin), Xmax + fraction * np.fabs(Xmax))
             self.axis_y.setRange(Ymin - fraction * np.fabs(Ymin), Ymax + fraction * np.fabs(Ymax))
+
+    def save_image(self):
+        home = os.path.expanduser("~")
+
+        path = QFileDialog.getSaveFileName(self.window, "Save Image",  home, "PNG (*.png)")[0]
+
+        if path != "":
+            if not path.endswith(".png"):
+                path += ".png"
+
+            pixmap = self.chart_view.grab()
+
+            pixmap.save(path)
+
+    def reset_zoom(self):
+        self.chart.zoomReset()
