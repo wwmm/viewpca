@@ -4,12 +4,12 @@ import os
 
 import numpy as np
 from PySide2.QtCharts import QtCharts
-from PySide2.QtCore import QFile, QObject, Qt
+from PySide2.QtCore import QFile, QObject, Qt, QEvent
 from PySide2.QtGui import QBrush, QColor, QPainter, QPen
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
                                QGraphicsEllipseItem, QLabel, QPushButton,
-                               QTabWidget)
+                               QRadioButton, QTabWidget)
 
 from ViewPCA.table import Table
 
@@ -21,6 +21,7 @@ class ApplicationWindow(QObject):
         self.module_path = os.path.dirname(__file__)
 
         self.mouse_pressed = False
+        self.draw_ellipse = False
         self.mouse_pressed_x = 0
         self.mouse_pressed_y = 0
         self.tables = []
@@ -42,6 +43,8 @@ class ApplicationWindow(QObject):
         button_reset_zoom = self.window.findChild(QPushButton, "button_reset_zoom")
         button_save_image = self.window.findChild(QPushButton, "button_save_image")
         self.label_mouse_coords = self.window.findChild(QLabel, "label_mouse_coords")
+        self.radio_zoom = self.window.findChild(QRadioButton, "radio_zoom")
+        self.radio_ellipse = self.window.findChild(QRadioButton, "radio_ellipse")
 
         # Creating QChart
         self.chart = QtCharts.QChart()
@@ -64,7 +67,7 @@ class ApplicationWindow(QObject):
 
         self.chart_view.setChart(self.chart)
         self.chart_view.setRenderHint(QPainter.Antialiasing)
-        # self.chart_view.setRubberBand(QtCharts.QChartView.RectangleRubberBand)
+        self.chart_view.setRubberBand(QtCharts.QChartView.RectangleRubberBand)
 
         # 1 tab by default
 
@@ -94,12 +97,12 @@ class ApplicationWindow(QObject):
         button_add_tab.clicked.connect(self.add_tab)
         button_reset_zoom.clicked.connect(self.reset_zoom)
         button_save_image.clicked.connect(self.save_image)
+        self.radio_zoom.toggled.connect(self.on_mouse_function_changed)
+        self.radio_ellipse.toggled.connect(self.on_mouse_function_changed)
 
-        # override signal slot
+        # event filter
 
-        self.chart_view.mousePressEvent = self.on_mouse_press
-        self.chart_view.mouseReleaseEvent = self.on_mouse_release
-        self.chart_view.mouseMoveEvent = self.on_mouse_move
+        self.chart.installEventFilter(self)
 
         # show window
 
@@ -213,42 +216,68 @@ class ApplicationWindow(QObject):
     def on_new_mouse_coords(self, point):
         self.label_mouse_coords.setText("x = {0:.6f}, y = {1:.6f}".format(point.x(), point.y()))
 
-    def on_mouse_press(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.mouse_pressed = True
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.GraphicsSceneMousePress:
+            if event.button() == Qt.MouseButton.LeftButton and self.draw_ellipse:
+                self.mouse_pressed = True
 
-            ellipsis = QGraphicsEllipseItem(self.chart)
+                ellipsis = QGraphicsEllipseItem(self.chart)
 
-            ellipsis.setZValue(12)
-            ellipsis.setBrush(QBrush(QColor(244, 67, 54, 50)))
-            ellipsis.setPen(QPen(Qt.transparent))
+                ellipsis.setZValue(12)
+                ellipsis.setBrush(QBrush(QColor(244, 67, 54, 50)))
+                ellipsis.setPen(QPen(Qt.transparent))
 
-            self.group_markers.append(ellipsis)
+                self.group_markers.append(ellipsis)
 
-            self.mouse_pressed_x, self.mouse_pressed_y = event.x(), event.y()
-        elif event.button() == Qt.MouseButton.RightButton:
-            x, y = event.x(), event.y()
+                self.mouse_pressed_x, self.mouse_pressed_y = event.pos().x(), event.pos().y()
 
-            for marker in self.group_markers:
-                if marker.rect().contains(x, y):
-                    marker.hide()
+                return True
+            elif event.button() == Qt.MouseButton.RightButton:
+                x, y = event.pos().x(), event.pos().y()
 
-                    self.group_markers.remove(marker)
+                for marker in self.group_markers:
+                    if marker.rect().contains(x, y):
+                        marker.hide()
 
-    def on_mouse_release(self, event):
-        self.mouse_pressed = False
+                        self.group_markers.remove(marker)
 
-    def on_mouse_move(self, event):
-        if self.mouse_pressed:
-            x, y = event.x(), event.y()
+                return True
 
-            width = x - self.mouse_pressed_x
-            height = y - self.mouse_pressed_y
+            return QObject.eventFilter(self, obj, event)
 
-            self.group_markers[-1].setRect(self.mouse_pressed_x, self.mouse_pressed_y, width, height)
+        elif event.type() == QEvent.GraphicsSceneMouseRelease:
+            self.mouse_pressed = False
+
+            return True
+
+        elif event.type() == QEvent.GraphicsSceneMouseMove:
+            if self.mouse_pressed:
+                x, y = event.pos().x(), event.pos().y()
+
+                width = x - self.mouse_pressed_x
+                height = y - self.mouse_pressed_y
+
+                self.group_markers[-1].setRect(self.mouse_pressed_x, self.mouse_pressed_y, width, height)
+
+                return True
+
+            return QObject.eventFilter(self, obj, event)
+
+        return QObject.eventFilter(self, obj, event)
 
     def remove_group_markers(self):
         for marker in self.group_markers:
             marker.hide()
 
         self.group_markers.clear()
+
+    def on_mouse_function_changed(self, state):
+        if state:
+            if self.radio_zoom.isChecked():
+                self.draw_ellipse = False
+
+                self.chart_view.setRubberBand(QtCharts.QChartView.RectangleRubberBand)
+            elif self.radio_ellipse.isChecked():
+                self.draw_ellipse = True
+
+                self.chart_view.setRubberBand(QtCharts.QChartView.NoRubberBand)
