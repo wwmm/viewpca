@@ -4,14 +4,33 @@ import os
 
 import numpy as np
 from PySide2.QtCharts import QtCharts
-from PySide2.QtCore import QFile, QObject, Qt, QEvent
+from PySide2.QtCore import QEvent, QFile, QObject, QPointF, QRectF, Qt
 from PySide2.QtGui import QBrush, QColor, QPainter, QPen
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
-                               QGraphicsEllipseItem, QLabel, QPushButton,
-                               QRadioButton, QTabWidget)
+                               QGraphicsEllipseItem, QGraphicsTextItem, QLabel,
+                               QPushButton, QRadioButton, QTabWidget)
 
 from ViewPCA.table import Table
+
+
+class TextEventFilter(QObject):
+
+    def __init__(self, parent):
+        QObject.__init__(self)
+
+        self.parent = parent
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.GraphicsSceneMouseDoubleClick:
+            obj.setTextInteractionFlags(Qt.TextEditable)
+
+            return True
+
+        elif event.type() == QEvent.GraphicsSceneHoverLeave:
+            obj.setTextInteractionFlags(Qt.NoTextInteraction)
+
+        return QObject.eventFilter(self, obj, event)
 
 
 class ApplicationWindow(QObject):
@@ -22,10 +41,14 @@ class ApplicationWindow(QObject):
 
         self.mouse_pressed = False
         self.draw_ellipse = False
+        self.write_text = False
         self.mouse_pressed_x = 0
         self.mouse_pressed_y = 0
         self.tables = []
-        self.group_markers = []
+        self.ellipses = []
+        self.texts = []
+
+        self.text_event_filter = TextEventFilter(self)
 
         # loading widgets from designer file
 
@@ -45,6 +68,7 @@ class ApplicationWindow(QObject):
         self.label_mouse_coords = self.window.findChild(QLabel, "label_mouse_coords")
         self.radio_zoom = self.window.findChild(QRadioButton, "radio_zoom")
         self.radio_ellipse = self.window.findChild(QRadioButton, "radio_ellipse")
+        self.radio_text = self.window.findChild(QRadioButton, "radio_text")
 
         # Creating QChart
         self.chart = QtCharts.QChart()
@@ -99,6 +123,7 @@ class ApplicationWindow(QObject):
         button_save_image.clicked.connect(self.save_image)
         self.radio_zoom.toggled.connect(self.on_mouse_function_changed)
         self.radio_ellipse.toggled.connect(self.on_mouse_function_changed)
+        self.radio_text.toggled.connect(self.on_mouse_function_changed)
 
         # event filter
 
@@ -218,28 +243,66 @@ class ApplicationWindow(QObject):
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.GraphicsSceneMousePress:
-            if event.button() == Qt.MouseButton.LeftButton and self.draw_ellipse:
+            if event.button() == Qt.MouseButton.LeftButton:
                 self.mouse_pressed = True
 
-                ellipsis = QGraphicsEllipseItem(self.chart)
-
-                ellipsis.setZValue(12)
-                ellipsis.setBrush(QBrush(QColor(244, 67, 54, 50)))
-                ellipsis.setPen(QPen(Qt.transparent))
-
-                self.group_markers.append(ellipsis)
-
                 self.mouse_pressed_x, self.mouse_pressed_y = event.pos().x(), event.pos().y()
+
+                if self.draw_ellipse:
+                    ellipsis = QGraphicsEllipseItem(self.chart)
+
+                    ellipsis.setZValue(12)
+                    ellipsis.setBrush(QBrush(QColor(244, 67, 54, 50)))
+                    ellipsis.setPen(QPen(Qt.transparent))
+                    # ellipsis.setFlags(QGraphicsTextItem.ItemIsMovable)
+
+                    self.ellipses.append(ellipsis)
+                elif self.write_text:
+                    for t in self.texts:
+                        r = QRectF()
+                        r.setTopLeft(t.pos())
+                        r.setWidth(t.boundingRect().width())
+                        r.setHeight(t.boundingRect().height())
+
+                        if r.contains(self.mouse_pressed_x, self.mouse_pressed_y):
+                            return True
+
+                    """
+                        The user clicked over an area where there is no text. So we create one.
+                    """
+
+                    text = QGraphicsTextItem(self.chart)
+
+                    text.setZValue(12)
+                    text.setPos(QPointF(self.mouse_pressed_x, self.mouse_pressed_y))
+                    text.setPlainText("label")
+                    text.setAcceptHoverEvents(True)
+                    text.setTabChangesFocus(True)
+                    text.setFlags(QGraphicsTextItem.ItemIsMovable)
+                    text.installEventFilter(self.text_event_filter)
+
+                    self.texts.append(text)
 
                 return True
             elif event.button() == Qt.MouseButton.RightButton:
                 x, y = event.pos().x(), event.pos().y()
 
-                for marker in self.group_markers:
-                    if marker.rect().contains(x, y):
-                        marker.hide()
+                for e in self.ellipses:
+                    if e.rect().contains(x, y):
+                        e.hide()
 
-                        self.group_markers.remove(marker)
+                        self.ellipses.remove(e)
+
+                for t in self.texts:
+                    r = QRectF()
+                    r.setTopLeft(t.pos())
+                    r.setWidth(t.boundingRect().width())
+                    r.setHeight(t.boundingRect().height())
+
+                    if r.contains(x, y):
+                        t.hide()
+
+                        self.texts.remove(t)
 
                 return True
 
@@ -252,32 +315,46 @@ class ApplicationWindow(QObject):
 
         elif event.type() == QEvent.GraphicsSceneMouseMove:
             if self.mouse_pressed:
-                x, y = event.pos().x(), event.pos().y()
+                if self.draw_ellipse:
+                    x, y = event.pos().x(), event.pos().y()
 
-                width = x - self.mouse_pressed_x
-                height = y - self.mouse_pressed_y
+                    width = x - self.mouse_pressed_x
+                    height = y - self.mouse_pressed_y
 
-                self.group_markers[-1].setRect(self.mouse_pressed_x, self.mouse_pressed_y, width, height)
+                    self.ellipses[-1].setRect(self.mouse_pressed_x, self.mouse_pressed_y, width, height)
 
-                return True
+                    return True
 
             return QObject.eventFilter(self, obj, event)
 
         return QObject.eventFilter(self, obj, event)
 
     def remove_group_markers(self):
-        for marker in self.group_markers:
-            marker.hide()
+        for e in self.ellipses:
+            e.hide()
 
-        self.group_markers.clear()
+        for t in self.texts:
+            t.hide()
+
+        self.ellipses.clear()
+        self.texts.clear()
 
     def on_mouse_function_changed(self, state):
         if state:
             if self.radio_zoom.isChecked():
                 self.draw_ellipse = False
+                self.write_text = False
 
                 self.chart_view.setRubberBand(QtCharts.QChartView.RectangleRubberBand)
+
             elif self.radio_ellipse.isChecked():
                 self.draw_ellipse = True
+                self.write_text = False
+
+                self.chart_view.setRubberBand(QtCharts.QChartView.NoRubberBand)
+
+            elif self.radio_text.isChecked():
+                self.draw_ellipse = False
+                self.write_text = True
 
                 self.chart_view.setRubberBand(QtCharts.QChartView.NoRubberBand)
