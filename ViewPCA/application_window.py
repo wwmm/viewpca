@@ -5,10 +5,11 @@ import os
 import numpy as np
 from PySide2.QtCharts import QtCharts
 from PySide2.QtCore import QFile, QObject, Qt
-from PySide2.QtGui import QColor, QPainter
+from PySide2.QtGui import QBrush, QColor, QPainter, QPen
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtWidgets import (QFileDialog, QFrame, QGraphicsDropShadowEffect,
-                               QLabel, QPushButton, QTabWidget)
+                               QGraphicsEllipseItem, QLabel, QPushButton,
+                               QTabWidget)
 
 from ViewPCA.table import Table
 
@@ -19,7 +20,11 @@ class ApplicationWindow(QObject):
 
         self.module_path = os.path.dirname(__file__)
 
+        self.mouse_pressed = False
+        self.mouse_pressed_x = 0
+        self.mouse_pressed_y = 0
         self.tables = []
+        self.group_markers = []
 
         # loading widgets from designer file
 
@@ -37,13 +42,6 @@ class ApplicationWindow(QObject):
         button_reset_zoom = self.window.findChild(QPushButton, "button_reset_zoom")
         button_save_image = self.window.findChild(QPushButton, "button_save_image")
         self.label_mouse_coords = self.window.findChild(QLabel, "label_mouse_coords")
-
-        # signal connection
-
-        self.tab_widget.tabCloseRequested.connect(self.remove_tab)
-        button_add_tab.clicked.connect(self.add_tab)
-        button_reset_zoom.clicked.connect(self.reset_zoom)
-        button_save_image.clicked.connect(self.save_image)
 
         # Creating QChart
         self.chart = QtCharts.QChart()
@@ -66,7 +64,7 @@ class ApplicationWindow(QObject):
 
         self.chart_view.setChart(self.chart)
         self.chart_view.setRenderHint(QPainter.Antialiasing)
-        self.chart_view.setRubberBand(QtCharts.QChartView.RectangleRubberBand)
+        # self.chart_view.setRubberBand(QtCharts.QChartView.RectangleRubberBand)
 
         # 1 tab by default
 
@@ -89,6 +87,21 @@ class ApplicationWindow(QObject):
         button_add_tab.setGraphicsEffect(self.button_shadow())
         button_reset_zoom.setGraphicsEffect(self.button_shadow())
         button_save_image.setGraphicsEffect(self.button_shadow())
+
+        # signal connection
+
+        self.tab_widget.tabCloseRequested.connect(self.remove_tab)
+        button_add_tab.clicked.connect(self.add_tab)
+        button_reset_zoom.clicked.connect(self.reset_zoom)
+        button_save_image.clicked.connect(self.save_image)
+
+        # override signal slot
+
+        self.chart_view.mousePressEvent = self.on_mouse_press
+        self.chart_view.mouseReleaseEvent = self.on_mouse_release
+        self.chart_view.mouseMoveEvent = self.on_mouse_move
+
+        # show window
 
         self.window.show()
 
@@ -194,7 +207,48 @@ class ApplicationWindow(QObject):
             pixmap.save(path)
 
     def reset_zoom(self):
+        self.remove_group_markers()
         self.chart.zoomReset()
 
     def on_new_mouse_coords(self, point):
         self.label_mouse_coords.setText("x = {0:.6f}, y = {1:.6f}".format(point.x(), point.y()))
+
+    def on_mouse_press(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.mouse_pressed = True
+
+            ellipsis = QGraphicsEllipseItem(self.chart)
+
+            ellipsis.setZValue(12)
+            ellipsis.setBrush(QBrush(QColor(244, 67, 54, 50)))
+            ellipsis.setPen(QPen(Qt.transparent))
+
+            self.group_markers.append(ellipsis)
+
+            self.mouse_pressed_x, self.mouse_pressed_y = event.x(), event.y()
+        elif event.button() == Qt.MouseButton.RightButton:
+            x, y = event.x(), event.y()
+
+            for marker in self.group_markers:
+                if marker.rect().contains(x, y):
+                    marker.hide()
+
+                    self.group_markers.remove(marker)
+
+    def on_mouse_release(self, event):
+        self.mouse_pressed = False
+
+    def on_mouse_move(self, event):
+        if self.mouse_pressed:
+            x, y = event.x(), event.y()
+
+            width = x - self.mouse_pressed_x
+            height = y - self.mouse_pressed_y
+
+            self.group_markers[-1].setRect(self.mouse_pressed_x, self.mouse_pressed_y, width, height)
+
+    def remove_group_markers(self):
+        for marker in self.group_markers:
+            marker.hide()
+
+        self.group_markers.clear()
