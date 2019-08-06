@@ -235,7 +235,6 @@ class ApplicationWindow(QObject):
             pixmap.save(path)
 
     def reset_zoom(self):
-        self.remove_group_markers()
         self.chart.zoomReset()
 
     def on_new_mouse_coords(self, point):
@@ -254,7 +253,6 @@ class ApplicationWindow(QObject):
                     ellipsis.setZValue(12)
                     ellipsis.setBrush(QBrush(QColor(244, 67, 54, 50)))
                     ellipsis.setPen(QPen(Qt.transparent))
-                    # ellipsis.setFlags(QGraphicsTextItem.ItemIsMovable)
 
                     self.ellipses.append(ellipsis)
                 elif self.write_text:
