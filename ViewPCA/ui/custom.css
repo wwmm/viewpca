@@ -69,7 +69,7 @@ QTableView {
   color: rgba(0, 0, 0, 0.87);
   background-color: transparent;
   border: none;
-  selection-background-color: #82b1ff;
+  selection-background-color: transparent;
   line-height: 1.6;
   font-size: 16px;
   font-family: Roboto, sans-serif;
@@ -106,6 +106,10 @@ QTableView::item {
   font-size: 16px;
   font-family: Roboto, sans-serif;
   font-weight: normal;
+}
+
+QTableView::item:selected {
+  background-color: #82b1ff;
 }
 
 /*
